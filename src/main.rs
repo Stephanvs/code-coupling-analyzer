@@ -6,7 +6,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use tree_sitter::Node;
-// use tree_sitter::{InputEdit, Language, Parser, Point};
 
 #[derive(Parser)]
 struct Args {
