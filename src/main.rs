@@ -101,13 +101,14 @@ fn visit_node(source: &str, node: Node<'_>, depth: usize) {
 
     print!("{}{}", "  ".repeat(depth), node.kind().to_string().yellow());
 
-    if node.kind() == "identifier" || node.kind() == "type_identifier" {
-        let start_byte = node.start_byte();
-        let end_byte = node.end_byte();
-        let node_text = &source[start_byte..end_byte];
-        println!(" -> {}", node_text.bright_cyan());
-    } else {
-        println!("");
+    match node.kind() {
+        "identifier" | "type_identifier" => {
+            let start_byte = node.start_byte();
+            let end_byte = node.end_byte();
+            let node_text = &source[start_byte..end_byte];
+            println!(" -> {}", node_text.bright_cyan());
+        }
+        _ => println!(""),
     }
 
     let mut cursor = node.walk();
