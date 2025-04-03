@@ -56,29 +56,29 @@ fn visit_dirs(path: &Path) -> std::io::Result<()> {
 
 fn analyze_file(path: &Path) -> std::io::Result<()> {
     let mut parser = tree_sitter::Parser::new();
-    let ext = path.extension().and_then(|ext| ext.to_str());
+    let file_type = path.extension().and_then(|ext| ext.to_str()).unwrap();
+    let language = get_tree_sitter_language_by_file_type(file_type)?;
 
-    match ext {
-        Some("rs") => {
-            let _file_type = ext;
+    parser
+        .set_language(&language)
+        .expect("Failed to set language");
 
-            parser
-                .set_language(&tree_sitter_rust::LANGUAGE.into())
-                .expect("Failed to set language");
+    analyze_source_file(path.to_path_buf(), &mut parser)?;
+    Ok(())
+}
 
-            analyze_source_file(path.to_path_buf(), &mut parser)?;
-            Ok(())
-        }
-        // Some(_) => {
-        //     // Skip non-Rust files
-        //     println!("Skipping non-Rust file: {:?}", path);
-        //     Ok(())
-        // }
-        _ => {
-            // Skip files with no extension
-            println!("Skipping unsupported file: {:?}", path);
-            Ok(())
-        }
+fn get_tree_sitter_language_by_file_type(
+    file_type: &str,
+) -> Result<tree_sitter::Language, std::io::Error> {
+    match file_type {
+        "rs" => Ok(tree_sitter_rust::LANGUAGE.into()),
+        "ts" => Ok(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        "tsx" => Ok(tree_sitter_typescript::LANGUAGE_TSX.into()),
+        "cs" => Ok(tree_sitter_c_sharp::LANGUAGE.into()),
+        _ => Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "Unsupported file type",
+        )),
     }
 }
 
