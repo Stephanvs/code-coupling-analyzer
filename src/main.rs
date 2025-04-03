@@ -45,6 +45,8 @@ fn visit_dirs(dir: &Path, parser: &mut tree_sitter::Parser) -> std::io::Result<(
                 analyze_source_file(path, parser)?;
             }
         }
+    } else {
+        analyze_source_file(dir.to_path_buf(), parser)?;
     }
     Ok(())
 }
