@@ -22,33 +22,64 @@ fn main() {
     }
 
     println!(
-        "Scanning sources in folder: {:?}",
+        "Scanning sources in path: {:?}",
         source_folder.canonicalize().unwrap()
     );
 
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(&tree_sitter_rust::LANGUAGE.into())
-        .expect("Failed to set language");
-
-    visit_dirs(&source_folder, &mut parser).expect("Failed processing source files");
+    visit_dirs(&source_folder).expect("Failed processing source files");
 }
 
-fn visit_dirs(dir: &Path, parser: &mut tree_sitter::Parser) -> std::io::Result<()> {
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
+fn visit_dirs(path: &Path) -> std::io::Result<()> {
+    if path.is_dir() {
+        for entry in fs::read_dir(path)? {
             let entry = entry?;
             let path = entry.path();
+
             if path.is_dir() {
-                visit_dirs(&path, parser)?;
-            } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-                analyze_source_file(path, parser)?;
+                visit_dirs(&path)?;
+            } else {
+                analyze_file(&path)?;
             }
+
+            // if path.is_dir() {
+            //     visit_dirs(&path)?;
+            // } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+            //     analyze_source_file(path)?;
+            // }
         }
     } else {
-        analyze_source_file(dir.to_path_buf(), parser)?;
+        analyze_file(&path)?;
     }
+
     Ok(())
+}
+
+fn analyze_file(path: &Path) -> std::io::Result<()> {
+    let mut parser = tree_sitter::Parser::new();
+    let ext = path.extension().and_then(|ext| ext.to_str());
+
+    match ext {
+        Some("rs") => {
+            let _file_type = ext;
+
+            parser
+                .set_language(&tree_sitter_rust::LANGUAGE.into())
+                .expect("Failed to set language");
+
+            analyze_source_file(path.to_path_buf(), &mut parser)?;
+            Ok(())
+        }
+        // Some(_) => {
+        //     // Skip non-Rust files
+        //     println!("Skipping non-Rust file: {:?}", path);
+        //     Ok(())
+        // }
+        _ => {
+            // Skip files with no extension
+            println!("Skipping unsupported file: {:?}", path);
+            Ok(())
+        }
+    }
 }
 
 fn analyze_source_file(
