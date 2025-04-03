@@ -2,7 +2,7 @@ use clap::Parser;
 use colored::Colorize;
 use std::{
     fs,
-    io::Read,
+    io::{self, Read},
     path::{Path, PathBuf},
 };
 use tree_sitter::{Language, Node};
@@ -29,7 +29,7 @@ fn main() {
     visit_dirs(&source_folder).expect("Failed processing source files");
 }
 
-fn visit_dirs(path: &Path) -> std::io::Result<()> {
+fn visit_dirs(path: &Path) -> io::Result<()> {
     if path.is_dir() {
         for entry in fs::read_dir(path)? {
             let path = entry?.path();
@@ -53,20 +53,18 @@ fn visit_dirs(path: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn analyze_file(path: &Path) -> std::io::Result<()> {
+fn analyze_file(path: &Path) -> io::Result<()> {
     let mut parser = tree_sitter::Parser::new();
     let file_type = path.extension().and_then(|ext| ext.to_str());
 
-    if file_type == None {
-        return Ok(());
-    }
+    if let Some(file_type) = file_type {
+        if let Some(language) = tree_sitter_language_by_file_type(file_type) {
+            parser
+                .set_language(&language)
+                .expect("Failed to set language");
 
-    if let Some(language) = tree_sitter_language_by_file_type(file_type.unwrap()) {
-        parser
-            .set_language(&language)
-            .expect("Failed to set language");
-
-        analyze_source_file(path.to_path_buf(), &mut parser)?;
+            analyze_source_file(path.to_path_buf(), &mut parser)?;
+        }
     }
 
     Ok(())
@@ -82,10 +80,7 @@ fn tree_sitter_language_by_file_type(file_type: &str) -> Option<Language> {
     }
 }
 
-fn analyze_source_file(
-    file_path: PathBuf,
-    parser: &mut tree_sitter::Parser,
-) -> std::io::Result<()> {
+fn analyze_source_file(file_path: PathBuf, parser: &mut tree_sitter::Parser) -> io::Result<()> {
     let mut file = fs::File::open(&file_path)?;
     let mut source_code = String::new();
     file.read_to_string(&mut source_code)?;
@@ -110,7 +105,7 @@ fn visit_node(source: &str, node: Node<'_>, depth: usize) {
         let start_byte = node.start_byte();
         let end_byte = node.end_byte();
         let node_text = &source[start_byte..end_byte];
-        println!("({})", node_text.bright_cyan());
+        println!(" -> {}", node_text.bright_cyan());
     } else {
         println!("");
     }
