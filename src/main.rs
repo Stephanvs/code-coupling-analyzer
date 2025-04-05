@@ -33,18 +33,7 @@ fn visit_dirs(path: &Path) -> io::Result<()> {
     if path.is_dir() {
         for entry in fs::read_dir(path)? {
             let path = entry?.path();
-
-            if path.is_dir() {
                 visit_dirs(&path)?;
-            } else {
-                analyze_file(&path)?;
-            }
-
-            // if path.is_dir() {
-            //     visit_dirs(&path)?;
-            // } else if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
-            //     analyze_source_file(path)?;
-            // }
         }
     } else {
         analyze_file(&path)?;
