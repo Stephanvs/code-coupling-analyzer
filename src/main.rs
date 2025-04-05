@@ -18,7 +18,7 @@ fn main() {
     let source_folder = args.source_folder.unwrap_or_else(|| PathBuf::from("."));
 
     if !Path::exists(&source_folder) {
-        panic!("Ensure that the source folder exists.");
+        panic!("The provided folder {:?} does not exist.", source_folder);
     }
 
     println!(
