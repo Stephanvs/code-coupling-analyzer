@@ -1,17 +1,23 @@
 use clap::Parser;
 use colored::Colorize;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 use std::{
     fs,
     io::{self, Read},
     path::{Path, PathBuf},
 };
 use tree_sitter::{Language, Node};
+use tree_sitter_graph::Variables;
+use tree_sitter_stack_graphs::{NoCancellation, StackGraphLanguage};
 
 #[derive(Parser)]
 struct Args {
     #[arg(short, long)]
     source_folder: Option<PathBuf>,
 }
+
+static LANGUAGES: OnceLock<HashMap<String, Language>> = OnceLock::new();
 
 fn main() {
     let args = Args::parse();
@@ -21,6 +27,8 @@ fn main() {
         panic!("The provided folder {:?} does not exist.", source_folder);
     }
 
+    LANGUAGES.get_or_init(init_languages);
+
     println!(
         "Scanning for source code in path: {:?}",
         source_folder.canonicalize().unwrap()
@@ -29,11 +37,26 @@ fn main() {
     visit_dirs(&source_folder).expect("Failed processing source files");
 }
 
+fn init_languages() -> HashMap<String, Language> {
+    let mut map = HashMap::new();
+    map.insert(
+        "ts".to_string(),
+        tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+    );
+    map.insert(
+        "tsx".to_string(),
+        tree_sitter_typescript::LANGUAGE_TSX.into(),
+    );
+    map.insert("rs".to_string(), tree_sitter_rust::LANGUAGE.into());
+    map.insert("cs".to_string(), tree_sitter_c_sharp::LANGUAGE.into());
+    map
+}
+
 fn visit_dirs(path: &Path) -> io::Result<()> {
     if path.is_dir() {
         for entry in fs::read_dir(path)? {
             let path = entry?.path();
-                visit_dirs(&path)?;
+            visit_dirs(&path)?;
         }
     } else {
         analyze_file(&path)?;
@@ -52,7 +75,7 @@ fn analyze_file(path: &Path) -> io::Result<()> {
                 .set_language(&language)
                 .expect("Failed to set language");
 
-            analyze_source_file(path.to_path_buf(), &mut parser)?;
+            analyze_source_file(path.to_path_buf(), language, &mut parser)?;
         }
     }
 
@@ -60,24 +83,49 @@ fn analyze_file(path: &Path) -> io::Result<()> {
 }
 
 fn tree_sitter_language_by_file_type(file_type: &str) -> Option<Language> {
+    let languages = LANGUAGES.get()?;
+
     match file_type {
-        "rs" => Some(tree_sitter_rust::LANGUAGE.into()),
-        "ts" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
-        "tsx" => Some(tree_sitter_typescript::LANGUAGE_TSX.into()),
-        "cs" => Some(tree_sitter_c_sharp::LANGUAGE.into()),
+        "rs" => languages.get("rs").cloned(),
+        "ts" => languages.get("ts").cloned(),
+        "tsx" => languages.get("tsx").cloned(),
+        "cs" => languages.get("cs").cloned(),
         _ => None,
     }
 }
 
-fn analyze_source_file(file_path: PathBuf, parser: &mut tree_sitter::Parser) -> io::Result<()> {
+fn analyze_source_file(
+    file_path: PathBuf,
+    language: Language,
+    parser: &mut tree_sitter::Parser,
+) -> io::Result<()> {
     let mut file = fs::File::open(&file_path)?;
     let mut source_code = String::new();
     file.read_to_string(&mut source_code)?;
 
+    let tsg_source = tree_sitter_stack_graphs_typescript::STACK_GRAPHS_TSG_TS_SOURCE;
+    let stack_language = StackGraphLanguage::from_str(language, tsg_source).unwrap();
+    let mut stack_graph = stack_graphs::graph::StackGraph::new();
+    let file_handle = stack_graph.get_or_create_file(file_path.to_str().unwrap());
+    let globals = Variables::new();
+
+    stack_language
+        .build_stack_graph_into(
+            &mut stack_graph,
+            file_handle,
+            &source_code,
+            &globals,
+            &NoCancellation,
+        )
+        .unwrap();
+
     let tree = parser.parse(&source_code, None).unwrap();
     let root_node = tree.root_node();
 
-    eprintln!("File: {:?}", file_path.to_string_lossy().bold());
+    eprintln!(
+        "File: {}",
+        file_path.to_string_lossy().bright_yellow().bold()
+    );
 
     visit_node(&source_code, root_node, 0);
     Ok(())
