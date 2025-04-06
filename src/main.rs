@@ -2,6 +2,7 @@ use clap::Parser;
 use colored::Colorize;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::time::Instant;
 use std::{
     fs,
     io::{self, Read},
@@ -20,6 +21,7 @@ struct Args {
 static LANGUAGES: OnceLock<HashMap<String, Language>> = OnceLock::new();
 
 fn main() {
+    let start_time = Instant::now();
     let args = Args::parse();
     let source_folder = args.source_folder.unwrap_or_else(|| PathBuf::from("."));
 
@@ -35,6 +37,11 @@ fn main() {
     );
 
     visit_dirs(&source_folder).expect("Failed processing source files");
+
+    println!(
+        "Analysis completed in {} ms",
+        start_time.elapsed().as_millis().to_string().bold()
+    );
 }
 
 fn init_languages() -> HashMap<String, Language> {
