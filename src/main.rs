@@ -21,7 +21,6 @@ struct Args {
 static LANGUAGES: OnceLock<HashMap<String, Language>> = OnceLock::new();
 
 fn main() {
-    let start_time = Instant::now();
     let args = Args::parse();
     let source_folder = args.source_folder.unwrap_or_else(|| PathBuf::from("."));
 
@@ -35,6 +34,8 @@ fn main() {
         "Scanning for source code in path: {:?}",
         source_folder.canonicalize().unwrap()
     );
+
+    let start_time = Instant::now();
 
     visit_dirs(&source_folder).expect("Failed processing source files");
 
