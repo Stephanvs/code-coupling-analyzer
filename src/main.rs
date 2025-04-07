@@ -74,6 +74,7 @@ fn visit_dirs(path: &Path) -> io::Result<()> {
 }
 
 fn analyze_file(path: &Path) -> io::Result<()> {
+    let start = Instant::now();
     let mut parser = tree_sitter::Parser::new();
     let file_type = path.extension().and_then(|ext| ext.to_str());
 
@@ -127,15 +128,19 @@ fn analyze_source_file(
         )
         .unwrap();
 
-    let tree = parser.parse(&source_code, None).unwrap();
-    let root_node = tree.root_node();
+    stack_graph.iter_nodes().for_each(|node| {
+        println!("Node: {:?}", node);
+    });
 
-    eprintln!(
-        "File: {}",
-        file_path.to_string_lossy().bright_yellow().bold()
-    );
+    // let tree = parser.parse(&source_code, None).unwrap();
+    // let root_node = tree.root_node();
 
-    visit_node(&source_code, root_node, 0);
+    // eprintln!(
+    //     "File: {}",
+    //     file_path.to_string_lossy().bright_yellow().bold()
+    // );
+
+    // visit_node(&source_code, root_node, 0);
     Ok(())
 }
 
